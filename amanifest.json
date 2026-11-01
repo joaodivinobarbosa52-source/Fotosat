@@ -1,0 +1,18 @@
+{
+  "name": "Foto no Mapa",
+  "short_name": "Foto no Mapa",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14342b",
+  "theme_color": "#14342b",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20512%20512%27%3E%3Crect%20width%3D%27512%27%20height%3D%27512%27%20fill%3D%27%2314342b%27%2F%3E%3Cpath%20d%3D%27M32%200V512M96%200V512M160%200V512M224%200V512M288%200V512M352%200V512M416%200V512M480%200V512%27%20stroke%3D%27%231d4b3e%27%20stroke-width%3D%2712%27%2F%3E%3Cellipse%20cx%3D%27256%27%20cy%3D%27440%27%20rx%3D%27150%27%20ry%3D%2746%27%20fill%3D%27%238a6a3b%27%20opacity%3D%27.9%27%2F%3E%3Cpath%20d%3D%27M256%20440L158%20280A115%20115%200%201%201%20354%20280Z%27%20fill%3D%27%23ffd23f%27%20stroke%3D%27%23fff%27%20stroke-width%3D%2714%27%20stroke-linejoin%3D%27round%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2770%27%20fill%3D%27%2314342b%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2746%27%20fill%3D%27%232c7a64%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2726%27%20fill%3D%27%230d1f1a%27%2F%3E%3Ccircle%20cx%3D%27244%27%20cy%3D%27208%27%20r%3D%279%27%20fill%3D%27%23fff%27%2F%3E%3C%2Fsvg%3E",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "id": "./index.html"
+}
