@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14342b">
+<title>Foto no Mapa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20512%20512%27%3E%3Crect%20width%3D%27512%27%20height%3D%27512%27%20fill%3D%27%2314342b%27%2F%3E%3Cpath%20d%3D%27M32%200V512M96%200V512M160%200V512M224%200V512M288%200V512M352%200V512M416%200V512M480%200V512%27%20stroke%3D%27%231d4b3e%27%20stroke-width%3D%2712%27%2F%3E%3Cellipse%20cx%3D%27256%27%20cy%3D%27440%27%20rx%3D%27150%27%20ry%3D%2746%27%20fill%3D%27%238a6a3b%27%20opacity%3D%27.9%27%2F%3E%3Cpath%20d%3D%27M256%20440L158%20280A115%20115%200%201%201%20354%20280Z%27%20fill%3D%27%23ffd23f%27%20stroke%3D%27%23fff%27%20stroke-width%3D%2714%27%20stroke-linejoin%3D%27round%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2770%27%20fill%3D%27%2314342b%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2746%27%20fill%3D%27%232c7a64%27%2F%3E%3Ccircle%20cx%3D%27256%27%20cy%3D%27220%27%20r%3D%2726%27%20fill%3D%27%230d1f1a%27%2F%3E%3Ccircle%20cx%3D%27244%27%20cy%3D%27208%27%20r%3D%279%27%20fill%3D%27%23fff%27%2F%3E%3C%2Fsvg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--verde:#14342b;--sol:#ffd23f;--papel:#f5f3ec;--tinta:#10201a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--verde);color:var(--papel)}
+#map{position:absolute;inset:0;background:#0d1f1a}
+.top{position:absolute;z-index:500;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;justify-content:space-between;pointer-events:none}
+.chip{pointer-events:auto;background:rgba(20,52,43,.92);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e5533d}
+.dot.ok{background:#7bd88f}
+.bar{position:absolute;z-index:500;left:0;right:0;bottom:0;padding:12px 16px max(14px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;background:linear-gradient(transparent,rgba(10,25,20,.75))}
+.side{background:rgba(20,52,43,.92);color:var(--papel);border:0;border-radius:14px;padding:12px 14px;font:600 14px inherit;min-width:84px}
+.cam{width:78px;height:78px;border-radius:50%;border:5px solid var(--papel);background:var(--sol);color:var(--tinta);font-size:30px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+.cam:active{transform:scale(.94)}
+.pin{width:34px;height:34px;border-radius:50%;background:var(--sol);color:var(--tinta);border:3px solid #fff;font:800 15px/28px system-ui,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.6)}
+.pin.novo{animation:pulso .9s ease-out 2}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(255,210,63,.9)}100%{box-shadow:0 0 0 22px rgba(255,210,63,0)}}
+.eu{width:16px;height:16px;border-radius:50%;background:#3b9cff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,156,255,.3)}
+#ver{position:fixed;inset:0;z-index:2000;background:rgba(6,14,11,.96);display:none;flex-direction:column}
+#ver.on{display:flex}
+#ver img{flex:1;min-height:0;width:100%;object-fit:contain}
+#info{padding:10px 16px;font-size:14px;line-height:1.5;overflow:auto;max-height:32vh}
+#info b{font-size:18px}
+.acoes{display:flex;gap:8px;padding:0 16px max(16px,env(safe-area-inset-bottom))}
+.acoes button{flex:1;border:0;border-radius:12px;padding:13px 6px;font:600 15px inherit;background:#27493f;color:var(--papel)}
+.acoes .del{background:#7a2a20}
+#guia{position:absolute;z-index:600;left:12px;right:12px;bottom:128px;background:rgba(20,52,43,.96);border-radius:16px;padding:12px 14px;display:none}
+#guia.on{display:block}
+#gtxt{font-size:17px;font-weight:700;margin-bottom:10px}
+.gb{display:flex;gap:8px}
+.gb button{flex:1;border:0;border-radius:10px;padding:11px 6px;font:600 14px inherit;background:#27493f;color:var(--papel)}
+.gb #gmaps{background:var(--sol);color:var(--tinta)}
+.pin.ok{background:#7bd88f}
+.sheet{position:fixed;inset:0;z-index:2500;background:rgba(6,14,11,.7);display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.box{background:var(--papel);color:var(--tinta);width:100%;border-radius:18px 18px 0 0;padding:16px 16px max(16px,env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.box h3{margin:0 0 6px;font-size:19px}
+.box label{display:block;font-size:13px;font-weight:700;margin-top:12px}
+.box textarea{width:100%;border:2px solid #c9c5b8;border-radius:10px;padding:8px;font:16px inherit;margin-top:4px;background:#fff;color:var(--tinta)}
+.box button,.dbtn button{width:100%;border:0;border-radius:12px;padding:14px;margin-top:8px;font:700 16px inherit;background:var(--verde);color:var(--papel)}
+.box .cinza{background:#d9d5c8;color:var(--tinta)}
+.dbtn{display:flex;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chips button{width:auto;margin:0;border:2px solid var(--verde);background:#fff;color:var(--verde);border-radius:999px;padding:8px 12px;font:600 14px inherit}
+.chips button.on{background:var(--verde);color:#fff}
+.box .ck{display:flex;align-items:center;gap:10px;font-size:16px;margin-top:14px}
+.ck input{width:22px;height:22px}
+#aviso{position:fixed;z-index:3000;left:16px;right:16px;bottom:120px;background:var(--papel);color:var(--tinta);border-radius:12px;padding:12px 14px;font-size:14px;display:none}
+#aviso.on{display:block}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="top">
+  <div class="chip"><span id="n">0 fotos</span></div>
+  <div class="chip"><span class="dot" id="dot"></span><span id="gps">Buscando GPS…</span></div>
+</div>
+<div class="bar">
+  <button class="side" id="ajustar">Ver tudo</button>
+  <button class="cam" id="cam" aria-label="Tirar foto">&#128247;</button>
+  <button class="side" id="kml">Enviar</button>
+</div>
+<div id="det" class="sheet"><div class="box">
+  <h3 id="dtit"></h3>
+  <label>Tipo do problema</label><div class="chips" id="chips"></div>
+  <label>Observação do operador</label><textarea id="obs" rows="2"></textarea>
+  <label>Parecer do técnico</label><textarea id="laudo" rows="2"></textarea>
+  <label class="ck"><input type="checkbox" id="stt"> Verificado no local</label>
+  <div class="dbtn"><button id="dpular" class="cinza">Pular</button><button id="dsalvar">Salvar</button></div>
+</div></div>
+<div id="menu" class="sheet"><div class="box">
+  <h3>Enviar e receber</h3>
+  <button id="env">Enviar pontos ao técnico (app)</button>
+  <button id="kmz">Google Earth (todas as fotos)</button>
+  <button id="imp">Receber pontos de outro aparelho</button>
+  <button id="mfechar" class="cinza">Fechar</button>
+</div></div>
+<input id="arqimp" type="file" hidden>
+<div id="guia">
+  <div id="gtxt"></div>
+  <div class="gb"><button id="gmaps">Abrir no Google Maps</button><button id="gparar">Parar</button></div>
+</div>
+<input id="arq" type="file" accept="image/*" capture="environment" hidden>
+<div id="ver">
+  <img id="img" alt="Foto">
+  <div id="info"></div>
+  <div class="acoes" style="padding-bottom:8px">
+    <button id="edit" style="background:#2f6f5e">Tipo, observação e verificação</button>
+  </div>
+  <div class="acoes" style="padding-bottom:8px">
+    <button id="comp" style="background:var(--sol);color:var(--tinta)">Enviar foto e rota</button>
+    <button id="ir" style="background:var(--sol);color:var(--tinta)">Guiar até aqui</button>
+  </div>
+  <div class="acoes" style="padding-bottom:8px">
+    <button id="earth" style="background:#2f6f5e">Abrir no Google Earth</button>
+  </div>
+  <div class="acoes" style="padding-bottom:8px">
+    <button id="ant">&lsaquo; Anterior</button>
+    <button id="prox">Próxima &rsaquo;</button>
+  </div>
+  <div class="acoes">
+    <button id="fechar">Fechar</button>
+    <button id="baixar">Baixar</button>
+    <button class="del" id="excluir">Excluir</button>
+  </div>
+</div>
+<div id="aviso"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const novoUid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let db,map,camada,fotos=[],pos=null,atual=null,urlAtual=null,eu=null;
+
+/* ---------- banco local ---------- */
+const abrir=()=>new Promise((ok,er)=>{const r=indexedDB.open('fotomapa',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('fotos',{keyPath:'id',autoIncrement:true});
+  r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const pedir=r=>new Promise((ok,er)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const store=m=>db.transaction('fotos',m).objectStore('fotos');
+
+/* ---------- avisos ---------- */
+let tAviso;
+function aviso(t){const a=$('#aviso');a.textContent=t;a.classList.add('on');clearTimeout(tAviso);tAviso=setTimeout(()=>a.classList.remove('on'),4500)}
+
+/* ---------- mapa de satélite ---------- */
+map=L.map('map',{zoomControl:false,attributionControl:true}).setView([-4.2,-44.8],5);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:19,maxNativeZoom:16,attribution:'Imagens © Esri'}).addTo(map);
+camada=L.layerGroup().addTo(map);
+
+function desenhar(novoId){
+  camada.clearLayers();
+  fotos.forEach(f=>{
+    const ic=L.divIcon({className:'',html:'<div class="pin'+(f.id===novoId?' novo':'')+(f.status==='verificado'?' ok':'')+'">'+f.n+'</div>',iconSize:[34,34],iconAnchor:[17,17]});
+    L.marker([f.lat,f.lng],{icon:ic}).on('click',()=>abrirFoto(f)).addTo(camada);
+  });
+  $('#n').textContent=fotos.length+(fotos.length===1?' foto':' fotos')+' · '+fotos.filter(f=>f.status!=='verificado').length+' pend.';
+}
+async function carregar(novoId){
+  fotos=await pedir(store('readonly').getAll());
+  for(const f of fotos){if(!f.uid){f.uid=novoUid();f.status=f.status||'pendente';f.mod=f.mod||f.ts;await pedir(store('readwrite').put(f))}}
+  fotos.sort((a,b)=>a.n-b.n);
+  desenhar(novoId);
+}
+function ajustar(){
+  const p=fotos.map(f=>[f.lat,f.lng]);
+  if(pos)p.push([pos.lat,pos.lng]);
+  if(!p.length)return aviso('Ainda não há fotos nem sinal de GPS.');
+  if(p.length===1)map.setView(p[0],17);else map.fitBounds(p,{padding:[60,60],maxZoom:17});
+}
+
+/* ---------- GPS contínuo ---------- */
+let primeiro=true;
+if(!navigator.geolocation){$('#gps').textContent='Sem GPS neste aparelho'}
+else navigator.geolocation.watchPosition(p=>{
+  pos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
+  $('#dot').className='dot ok';$('#gps').textContent='GPS ±'+Math.round(pos.acc)+' m';
+  if(!eu)eu=L.marker([pos.lat,pos.lng],{icon:L.divIcon({className:'',html:'<div class="eu"></div>',iconSize:[16,16],iconAnchor:[8,8]}),interactive:false,zIndexOffset:-500}).addTo(map);
+  else eu.setLatLng([pos.lat,pos.lng]);
+  if(primeiro&&!fotos.length){map.setView([pos.lat,pos.lng],17)}
+  primeiro=false;
+  atualizarGuia();
+},e=>{
+  $('#dot').className='dot';
+  $('#gps').textContent=e.code===1?'GPS bloqueado':'Sem sinal de GPS';
+  if(e.code===1)aviso('Permita o acesso à localização nas configurações do navegador.');
+},{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+
+/* ---------- tirar foto ---------- */
+$('#cam').onclick=()=>{
+  if(!pos)return aviso('Aguarde o sinal de GPS (bolinha verde) antes de tirar a foto.');
+  window._posToque={...pos};
+  $('#arq').click();
+};
+$('#arq').onchange=async e=>{
+  const arq=e.target.files[0];e.target.value='';
+  if(!arq)return;
+  const p=pos||window._posToque;
+  try{
+    const blob=await reduzir(arq,1600);
+    const n=fotos.reduce((m,f)=>Math.max(m,f.n),0)+1;
+    const id=await pedir(store('readwrite').add({n,uid:novoUid(),lat:p.lat,lng:p.lng,acc:p.acc,ts:Date.now(),mod:Date.now(),status:'pendente',tipo:'',obs:'',laudo:'',blob}));
+    await carregar(id);
+    map.setView([p.lat,p.lng],Math.max(Math.min(map.getZoom(),17),16));
+    aviso('Foto '+n+' marcada no mapa.');abrirDet(fotos.find(x=>x.id===id));
+  }catch(err){aviso('Não foi possível salvar a foto. Tente de novo.')}
+};
+async function reduzir(arq,max){
+  const bmp=await createImageBitmap(arq);
+  const k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return new Promise((ok,er)=>c.toBlob(b=>b?ok(b):er(),'image/jpeg',.82));
+}
+
+/* ---------- ver foto ---------- */
+const dh=t=>new Date(t).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+function abrirFoto(f){
+  atual=f;if(urlAtual)URL.revokeObjectURL(urlAtual);
+  urlAtual=URL.createObjectURL(f.blob);$('#img').src=urlAtual;
+  $('#info').innerHTML='<b>Foto '+f.n+'</b> · '+(f.status==='verificado'?'Verificado':'Pendente')+'<br>'+(f.tipo?esc(f.tipo)+'<br>':'')+(f.obs?'Operador: '+esc(f.obs)+'<br>':'')+(f.laudo?'Técnico: '+esc(f.laudo)+'<br>':'')+dh(f.ts)+'<br>'+f.lat.toFixed(6)+', '+f.lng.toFixed(6)+(f.acc?' (±'+Math.round(f.acc)+' m)':'');
+  $('#ver').classList.add('on');
+}
+/* ---------- enviar foto + rota ---------- */
+const linkRota=f=>'https://www.google.com/maps/dir/?api=1&destination='+f.lat+','+f.lng+'&travelmode=driving';
+$('#comp').onclick=async()=>{
+  const f=atual,txt='Foto '+f.n+' ('+dh(f.ts)+')\nPara chegar ao local: '+linkRota(f);
+  const arq=new File([f.blob],'foto-'+f.n+'.jpg',{type:'image/jpeg'});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[arq]}))await navigator.share({files:[arq],text:txt,title:'Foto '+f.n});
+    else await navigator.share({text:txt,title:'Foto '+f.n});
+  }catch(e){if(e.name!=='AbortError')window.open('https://wa.me/?text='+encodeURIComponent(txt))}
+};
+
+/* ---------- guiar até a foto (funciona sem internet) ---------- */
+let alvo=null,linhaGuia=null;
+const PONTOS=['Norte','Nordeste','Leste','Sudeste','Sul','Sudoeste','Oeste','Noroeste'];
+const rad=x=>x*Math.PI/180;
+function distancia(a,b){const h=Math.sin(rad(b.lat-a.lat)/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(rad(b.lng-a.lng)/2)**2;return 12742000*Math.asin(Math.sqrt(h))}
+function rumo(a,b){const y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat)),x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));return(Math.atan2(y,x)*180/Math.PI+360)%360}
+function atualizarGuia(){
+  if(!alvo)return;
+  if(!pos){$('#gtxt').textContent='Foto '+alvo.n+' · aguardando GPS…';return}
+  const d=distancia(pos,alvo);
+  if(linhaGuia)linhaGuia.setLatLngs([[pos.lat,pos.lng],[alvo.lat,alvo.lng]]);
+  $('#gtxt').textContent=d<8?'Você chegou à Foto '+alvo.n:'Foto '+alvo.n+' · '+(d<1000?Math.round(d)+' m':(d/1000).toFixed(2)+' km')+' ao '+PONTOS[Math.round(rumo(pos,alvo)/45)%8];
+}
+$('#ir').onclick=()=>{
+  alvo=atual;$('#ver').classList.remove('on');
+  if(linhaGuia)map.removeLayer(linhaGuia);
+  linhaGuia=L.polyline([[alvo.lat,alvo.lng],[alvo.lat,alvo.lng]],{color:'#ffd23f',weight:4,dashArray:'8 8'}).addTo(map);
+  $('#guia').classList.add('on');atualizarGuia();
+  map.fitBounds(pos?[[pos.lat,pos.lng],[alvo.lat,alvo.lng]]:[[alvo.lat,alvo.lng]],{padding:[70,70],maxZoom:17});
+};
+$('#gparar').onclick=()=>{alvo=null;$('#guia').classList.remove('on');if(linhaGuia){map.removeLayer(linhaGuia);linhaGuia=null}};
+$('#gmaps').onclick=()=>{if(alvo)window.open(linkRota(alvo),'_blank')};
+
+function ir(d){
+  const i=fotos.findIndex(x=>x.id===atual.id),f=fotos[i+d];
+  if(f)abrirFoto(f);else aviso(d<0?'Esta é a primeira foto.':'Esta é a última foto.');
+}
+$('#ant').onclick=()=>ir(-1);
+$('#prox').onclick=()=>ir(1);
+$('#img').onerror=()=>aviso('Não foi possível abrir esta foto.');
+$('#fechar').onclick=()=>$('#ver').classList.remove('on');
+$('#baixar').onclick=()=>{
+  const a=document.createElement('a');a.href=urlAtual;a.download='foto-'+atual.n+'.jpg';a.click();
+};
+$('#excluir').onclick=async()=>{
+  if(!confirm('Excluir a foto '+atual.n+'?'))return;
+  await pedir(store('readwrite').delete(atual.id));
+  $('#ver').classList.remove('on');await carregar();
+};
+
+/* ---------- exportar KMZ (Google Earth, com as fotos dentro) ---------- */
+const tabCrc=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=tabCrc[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function zip(arqs){
+  const enc=new TextEncoder(),partes=[],central=[];let off=0;
+  for(const a of arqs){
+    const nome=enc.encode(a.nome),c=crc32(a.dados),len=a.dados.length;
+    const h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,c,true);h.setUint32(18,len,true);h.setUint32(22,len,true);h.setUint16(26,nome.length,true);
+    partes.push(h.buffer,nome,a.dados);
+    const d=new DataView(new ArrayBuffer(46));
+    d.setUint32(0,0x02014b50,true);d.setUint16(4,20,true);d.setUint16(6,20,true);d.setUint16(8,0x0800,true);d.setUint16(14,0x21,true);
+    d.setUint32(16,c,true);d.setUint32(20,len,true);d.setUint32(24,len,true);d.setUint16(28,nome.length,true);d.setUint32(42,off,true);
+    central.push(d.buffer,nome);
+    off+=30+nome.length+len;
+  }
+  const tam=central.reduce((s,x)=>s+x.byteLength,0);
+  const e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,arqs.length,true);e.setUint16(10,arqs.length,true);e.setUint32(12,tam,true);e.setUint32(16,off,true);
+  return new Blob([...partes,...central,e.buffer],{type:'application/vnd.google-earth.kmz'});
+}
+function salvar(blob,nome){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;a.click()}
+async function gerarKmz(lista){
+  const enc=new TextEncoder(),arqs=[];
+  const th={};
+  for(const f of lista)th[f.uid]=await lerUrl(await reduzir(f.blob,800));
+  const pm=lista.map(f=>'<Placemark><name>Foto '+f.n+'</name><LookAt><longitude>'+f.lng+'</longitude><latitude>'+f.lat+'</latitude><range>120</range></LookAt><description><![CDATA[<b>Foto '+f.n+'</b><br>'+(f.status==='verificado'?'Verificado':'Pendente')+(f.tipo?' · '+esc(f.tipo):'')+(f.obs?'<br>Operador: '+esc(f.obs):'')+(f.laudo?'<br>Técnico: '+esc(f.laudo):'')+'<br>'+dh(f.ts)+'<br><img src="'+th[f.uid]+'" width="320"><br><br><a href="'+linkRota(f)+'">Ir até aqui (Google Maps)</a>]]></description><Point><coordinates>'+f.lng+','+f.lat+',0</coordinates></Point></Placemark>').join('');
+  const kml='<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Fotos no talhão</name>'+pm+'</Document></kml>';
+  arqs.push({nome:'doc.kml',dados:enc.encode(kml)});
+  for(const f of lista)arqs.push({nome:'fotos/foto-'+f.n+'.jpg',dados:new Uint8Array(await f.blob.arrayBuffer())});
+  return zip(arqs);
+}
+$('#kmz').onclick=async()=>{
+  $('#menu').classList.remove('on');
+  if(!fotos.length)return aviso('Tire ao menos uma foto para exportar.');
+  aviso('Preparando arquivo…');
+  try{salvar(await gerarKmz(fotos),'fotos-talhao.kmz');aviso('Arquivo fotos-talhao.kmz salvo. Abra com o Google Earth.')}
+  catch(err){aviso('Não foi possível gerar o arquivo.')}
+};
+$('#earth').onclick=async()=>{
+  const f=atual;
+  try{
+    const b=await gerarKmz([f]);
+    const arq=new File([b],'foto-'+f.n+'.kmz',{type:'application/vnd.google-earth.kmz'});
+    if(navigator.canShare&&navigator.canShare({files:[arq]}))await navigator.share({files:[arq],title:'Foto '+f.n});
+    else{salvar(b,'foto-'+f.n+'.kmz');aviso('Arquivo salvo em Downloads. Abra com o Google Earth.')}
+  }catch(e){if(e.name!=='AbortError')aviso('Não foi possível gerar o arquivo.')}
+};
+/* ---------- detalhes do ponto ---------- */
+const TIPOS=['Planta daninha','Praga','Doença','Falha de plantio','Seca / encharcado','Outro'];
+let editando=null,tipoSel='';
+function abrirDet(f){
+  editando=f;tipoSel=f.tipo||'';
+  $('#dtit').textContent='Foto '+f.n;
+  $('#chips').innerHTML=TIPOS.map(t=>'<button data-t="'+t+'"'+(t===tipoSel?' class="on"':'')+'>'+t+'</button>').join('');
+  $('#obs').value=f.obs||'';$('#laudo').value=f.laudo||'';$('#stt').checked=f.status==='verificado';
+  $('#det').classList.add('on');
+}
+$('#chips').onclick=e=>{const b=e.target.closest('button');if(!b)return;tipoSel=tipoSel===b.dataset.t?'':b.dataset.t;[...$('#chips').children].forEach(x=>x.classList.toggle('on',x.dataset.t===tipoSel))};
+$('#dpular').onclick=()=>$('#det').classList.remove('on');
+$('#dsalvar').onclick=async()=>{
+  const f=editando;f.tipo=tipoSel;f.obs=$('#obs').value.trim();f.laudo=$('#laudo').value.trim();
+  f.status=$('#stt').checked?'verificado':'pendente';f.mod=Date.now();
+  await pedir(store('readwrite').put(f));
+  $('#det').classList.remove('on');await carregar();
+  if($('#ver').classList.contains('on'))abrirFoto(fotos.find(x=>x.id===f.id));
+};
+$('#edit').onclick=()=>abrirDet(atual);
+
+/* ---------- enviar / receber pontos entre aparelhos ---------- */
+$('#kml').onclick=()=>$('#menu').classList.add('on');
+$('#mfechar').onclick=()=>$('#menu').classList.remove('on');
+const lerUrl=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
+$('#env').onclick=async()=>{
+  $('#menu').classList.remove('on');
+  if(!fotos.length)return aviso('Não há pontos para enviar.');
+  aviso('Preparando pontos…');
+  try{
+    const itens=[];
+    for(const f of fotos){const {id,blob,...r}=f;itens.push({...r,foto:await lerUrl(blob)})}
+    const b=new Blob([JSON.stringify({app:'fotomapa',v:1,itens})],{type:'application/json'});
+    const arq=new File([b],'pontos-fotomapa.json',{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[arq]}))await navigator.share({files:[arq],title:'Pontos do talhão',text:'No app Foto no Mapa, toque em Enviar e depois em Receber pontos.'});
+    else{salvar(b,'pontos-fotomapa.json');aviso('Arquivo salvo em Downloads. Envie para a outra pessoa.')}
+  }catch(e){if(e.name!=='AbortError')aviso('Não foi possível preparar o envio.')}
+};
+$('#imp').onclick=()=>{$('#menu').classList.remove('on');$('#arqimp').click()};
+$('#arqimp').onchange=async e=>{
+  const arq=e.target.files[0];e.target.value='';if(!arq)return;
+  try{
+    const d=JSON.parse(await arq.text());
+    if(d.app!=='fotomapa'||!Array.isArray(d.itens))throw 0;
+    let novos=0,atu=0;
+    for(const it of d.itens){
+      const {foto,...r}=it,blob=await (await fetch(foto)).blob(),ex=fotos.find(x=>x.uid===r.uid);
+      if(ex){if((r.mod||0)>(ex.mod||0)){Object.assign(ex,r,{blob});await pedir(store('readwrite').put(ex));atu++}}
+      else{await pedir(store('readwrite').add({...r,blob}));novos++}
+      await carregar();
+    }
+    ajustar();aviso(novos+' ponto(s) novo(s), '+atu+' atualizado(s).');
+  }catch(err){aviso('Arquivo inválido. Escolha o arquivo pontos-fotomapa.json.')}
+};
+$('#ajustar').onclick=ajustar;
+
+/* ---------- início ---------- */
+abrir().then(d=>{db=d;return carregar()}).then(()=>{if(fotos.length)ajustar()});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
