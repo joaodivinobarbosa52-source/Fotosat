@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14342b">
+<title>Foto no Mapa</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{--verde:#14342b;--sol:#ffd23f;--papel:#f5f3ec;--tinta:#10201a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--verde);color:var(--papel)}
+#map{position:absolute;inset:0;background:#0d1f1a}
+.top{position:absolute;z-index:500;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;justify-content:space-between;pointer-events:none}
+.chip{pointer-events:auto;background:rgba(20,52,43,.92);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e5533d}
+.dot.ok{background:#7bd88f}
+.bar{position:absolute;z-index:500;left:0;right:0;bottom:0;padding:12px 16px max(14px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-between;background:linear-gradient(transparent,rgba(10,25,20,.75))}
+.side{background:rgba(20,52,43,.92);color:var(--papel);border:0;border-radius:14px;padding:12px 14px;font:600 14px inherit;min-width:84px}
+.cam{width:78px;height:78px;border-radius:50%;border:5px solid var(--papel);background:var(--sol);color:var(--tinta);font-size:30px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+.cam:active{transform:scale(.94)}
+.pin{width:34px;height:34px;border-radius:50%;background:var(--sol);color:var(--tinta);border:3px solid #fff;font:800 15px/28px system-ui,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.6)}
+.pin.novo{animation:pulso .9s ease-out 2}
+@keyframes pulso{0%{box-shadow:0 0 0 0 rgba(255,210,63,.9)}100%{box-shadow:0 0 0 22px rgba(255,210,63,0)}}
+.eu{width:16px;height:16px;border-radius:50%;background:#3b9cff;border:3px solid #fff;box-shadow:0 0 0 6px rgba(59,156,255,.3)}
+#ver{position:fixed;inset:0;z-index:2000;background:rgba(6,14,11,.96);display:none;flex-direction:column}
+#ver.on{display:flex}
+#ver img{flex:1;min-height:0;width:100%;object-fit:contain}
+#info{padding:10px 16px;font-size:14px;line-height:1.5}
+#info b{font-size:18px}
+.acoes{display:flex;gap:8px;padding:0 16px max(16px,env(safe-area-inset-bottom))}
+.acoes button{flex:1;border:0;border-radius:12px;padding:13px 6px;font:600 15px inherit;background:#27493f;color:var(--papel)}
+.acoes .del{background:#7a2a20}
+#aviso{position:fixed;z-index:3000;left:16px;right:16px;bottom:120px;background:var(--papel);color:var(--tinta);border-radius:12px;padding:12px 14px;font-size:14px;display:none}
+#aviso.on{display:block}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="top">
+  <div class="chip"><span id="n">0 fotos</span></div>
+  <div class="chip"><span class="dot" id="dot"></span><span id="gps">Buscando GPS…</span></div>
+</div>
+<div class="bar">
+  <button class="side" id="ajustar">Ver tudo</button>
+  <button class="cam" id="cam" aria-label="Tirar foto">&#128247;</button>
+  <button class="side" id="kml">Exportar</button>
+</div>
+<input id="arq" type="file" accept="image/*" capture="environment" hidden>
+<div id="ver">
+  <img id="img" alt="Foto">
+  <div id="info"></div>
+  <div class="acoes">
+    <button id="fechar">Fechar</button>
+    <button id="baixar">Baixar</button>
+    <button class="del" id="excluir">Excluir</button>
+  </div>
+</div>
+<div id="aviso"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+let db,map,camada,fotos=[],pos=null,atual=null,urlAtual=null,eu=null;
+
+/* ---------- banco local ---------- */
+const abrir=()=>new Promise((ok,er)=>{const r=indexedDB.open('fotomapa',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('fotos',{keyPath:'id',autoIncrement:true});
+  r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const pedir=r=>new Promise((ok,er)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>er(r.error)});
+const store=m=>db.transaction('fotos',m).objectStore('fotos');
+
+/* ---------- avisos ---------- */
+let tAviso;
+function aviso(t){const a=$('#aviso');a.textContent=t;a.classList.add('on');clearTimeout(tAviso);tAviso=setTimeout(()=>a.classList.remove('on'),4500)}
+
+/* ---------- mapa de satélite ---------- */
+map=L.map('map',{zoomControl:false,attributionControl:true}).setView([-4.2,-44.8],5);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:20,maxNativeZoom:18,attribution:'Imagens © Esri'}).addTo(map);
+camada=L.layerGroup().addTo(map);
+
+function desenhar(novoId){
+  camada.clearLayers();
+  fotos.forEach(f=>{
+    const ic=L.divIcon({className:'',html:'<div class="pin'+(f.id===novoId?' novo':'')+'">'+f.n+'</div>',iconSize:[34,34],iconAnchor:[17,17]});
+    L.marker([f.lat,f.lng],{icon:ic}).on('click',()=>abrirFoto(f)).addTo(camada);
+  });
+  $('#n').textContent=fotos.length+(fotos.length===1?' foto':' fotos');
+}
+async function carregar(novoId){
+  fotos=await pedir(store('readonly').getAll());
+  fotos.sort((a,b)=>a.n-b.n);
+  desenhar(novoId);
+}
+function ajustar(){
+  const p=fotos.map(f=>[f.lat,f.lng]);
+  if(pos)p.push([pos.lat,pos.lng]);
+  if(!p.length)return aviso('Ainda não há fotos nem sinal de GPS.');
+  if(p.length===1)map.setView(p[0],18);else map.fitBounds(p,{padding:[60,60],maxZoom:18});
+}
+
+/* ---------- GPS contínuo ---------- */
+let primeiro=true;
+if(!navigator.geolocation){$('#gps').textContent='Sem GPS neste aparelho'}
+else navigator.geolocation.watchPosition(p=>{
+  pos={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy};
+  $('#dot').className='dot ok';$('#gps').textContent='GPS ±'+Math.round(pos.acc)+' m';
+  if(!eu)eu=L.marker([pos.lat,pos.lng],{icon:L.divIcon({className:'',html:'<div class="eu"></div>',iconSize:[16,16],iconAnchor:[8,8]}),interactive:false,zIndexOffset:-500}).addTo(map);
+  else eu.setLatLng([pos.lat,pos.lng]);
+  if(primeiro&&!fotos.length){map.setView([pos.lat,pos.lng],17)}
+  primeiro=false;
+},e=>{
+  $('#dot').className='dot';
+  $('#gps').textContent=e.code===1?'GPS bloqueado':'Sem sinal de GPS';
+  if(e.code===1)aviso('Permita o acesso à localização nas configurações do navegador.');
+},{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+
+/* ---------- tirar foto ---------- */
+$('#cam').onclick=()=>{
+  if(!pos)return aviso('Aguarde o sinal de GPS (bolinha verde) antes de tirar a foto.');
+  window._posToque={...pos};
+  $('#arq').click();
+};
+$('#arq').onchange=async e=>{
+  const arq=e.target.files[0];e.target.value='';
+  if(!arq)return;
+  const p=pos||window._posToque;
+  try{
+    const blob=await reduzir(arq,1600);
+    const n=fotos.reduce((m,f)=>Math.max(m,f.n),0)+1;
+    const id=await pedir(store('readwrite').add({n,lat:p.lat,lng:p.lng,acc:p.acc,ts:Date.now(),blob}));
+    await carregar(id);
+    map.setView([p.lat,p.lng],Math.max(map.getZoom(),18));
+    aviso('Foto '+n+' marcada no mapa.');
+  }catch(err){aviso('Não foi possível salvar a foto. Tente de novo.')}
+};
+async function reduzir(arq,max){
+  const bmp=await createImageBitmap(arq);
+  const k=Math.min(1,max/Math.max(bmp.width,bmp.height));
+  const c=document.createElement('canvas');c.width=Math.round(bmp.width*k);c.height=Math.round(bmp.height*k);
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return new Promise((ok,er)=>c.toBlob(b=>b?ok(b):er(),'image/jpeg',.82));
+}
+
+/* ---------- ver foto ---------- */
+const dh=t=>new Date(t).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+function abrirFoto(f){
+  atual=f;if(urlAtual)URL.revokeObjectURL(urlAtual);
+  urlAtual=URL.createObjectURL(f.blob);$('#img').src=urlAtual;
+  $('#info').innerHTML='<b>Foto '+f.n+'</b><br>'+dh(f.ts)+'<br>'+f.lat.toFixed(6)+', '+f.lng.toFixed(6)+(f.acc?' (±'+Math.round(f.acc)+' m)':'');
+  $('#ver').classList.add('on');
+}
+$('#fechar').onclick=()=>$('#ver').classList.remove('on');
+$('#baixar').onclick=()=>{
+  const a=document.createElement('a');a.href=urlAtual;a.download='foto-'+atual.n+'.jpg';a.click();
+};
+$('#excluir').onclick=async()=>{
+  if(!confirm('Excluir a foto '+atual.n+'?'))return;
+  await pedir(store('readwrite').delete(atual.id));
+  $('#ver').classList.remove('on');await carregar();
+};
+
+/* ---------- exportar KML (Google Earth) ---------- */
+$('#kml').onclick=()=>{
+  if(!fotos.length)return aviso('Tire ao menos uma foto para exportar.');
+  const pm=fotos.map(f=>'<Placemark><name>Foto '+f.n+'</name><description>'+dh(f.ts)+'</description><Point><coordinates>'+f.lng+','+f.lat+',0</coordinates></Point></Placemark>').join('');
+  const kml='<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Fotos no talhão</name>'+pm+'</Document></kml>';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'}));
+  a.download='fotos-talhao.kml';a.click();
+};
+$('#ajustar').onclick=ajustar;
+
+/* ---------- início ---------- */
+abrir().then(d=>{db=d;return carregar()}).then(()=>{if(fotos.length)ajustar()});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
